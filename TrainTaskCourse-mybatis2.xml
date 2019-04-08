@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.funde.traintask.biz.mapper.TrainTaskCourseMapper">
+  <resultMap id="BaseResultMap" type="com.funde.traintask.biz.entity.TrainTaskCourse">
+    <id column="PK_SERIAL" jdbcType="VARCHAR" property="pkSerial" />
+    <result column="BRANCH_CODE" jdbcType="VARCHAR" property="trainCourseInfo.branchInfo.branchCode" />
+    <result column="COURSE_ID" jdbcType="VARCHAR" property="trainCourseInfo.courseId" />
+    <result column="TRAIN_ID" jdbcType="VARCHAR" property="trainTaskRecord.trainId" />
+    <result column="COURSE_NAME" jdbcType="VARCHAR" property="trainCourseInfo.courseName" />
+    <result column="COURSE_TYPE" jdbcType="VARCHAR" property="trainCourseInfo.trainCourseType.courseType" />
+    <result column="APPLY_USER" jdbcType="VARCHAR" property="trainCourseInfo.applyUser" />
+    <result column="APPLY_TIME" jdbcType="DATE" property="trainCourseInfo.applyTime" />
+    <result column="EFFECT_DATE" jdbcType="DATE" property="trainCourseInfo.effectDate" />
+    <result column="LATEST_MAINT_ID" jdbcType="VARCHAR" property="trainCourseInfo.busiMaintRecord.maintId" />
+    <result column="STATUS" jdbcType="VARCHAR" property="trainCourseInfo.trainCourseStatus.status" />
+    <result column="STATUS_DESC" jdbcType="VARCHAR" property="trainCourseInfo.trainCourseStatus.statusDesc" />
+    <result column="COURSE_TYPE_DESC" jdbcType="VARCHAR" property="trainCourseInfo.trainCourseType.courseTypeDesc" />
+    <result column="BRANCH_NAME" jdbcType="VARCHAR" property="trainCourseInfo.branchInfo.branchName" />
+    <result column="BUSI_MAINT_DESC" jdbcType="VARCHAR" property="trainCourseInfo.busiMaintRecord.busiMaintStatus.statusDesc" />
+    <result column="DEPT_NAME" jdbcType="VARCHAR" property="trainCourseInfo.deptInfo.deptName" />
+  </resultMap>
+  
+  <resultMap id="VoResultMap" type="com.funde.traintask.biz.vo.TrainCourseVo">
+    <result column="COURSE_NAME" jdbcType="VARCHAR" property="courseName" />
+    <result column="APPLY_USER" jdbcType="VARCHAR" property="applyUser" />
+    <result column="EFFECT_DATE_DESC" jdbcType="DATE" property="effectDate" />
+    <result column="STATUS_DESC" jdbcType="VARCHAR" property="courseStatus" />
+    <result column="COURSE_TYPE_DESC" jdbcType="VARCHAR" property="courseType" />
+    <result column="BRANCH_NAME" jdbcType="VARCHAR" property="branchName" />
+    <result column="BUSI_SERIES_DESC" jdbcType="VARCHAR" property="busiSeriesDesc" />
+    <result column="DEPT_NAME" jdbcType="VARCHAR" property="deptName" />
+  </resultMap>
+  
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    select PK_SERIAL, TRAIN_ID, COURSE_ID, IS_VALID, CREATED_USER, CREATED_DATE, UPDATED_USER, UPDATED_DATE
+      from TRAIN_TASK_COURSE
+     where PK_SERIAL = #{pkSerial} and IS_VALID='Y'
+  </select>
+  
+  <select id="selectByTrainAndCourse" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    select t.PK_SERIAL, t.TRAIN_ID, t.COURSE_ID, t.IS_VALID, t.CREATED_USER, t.CREATED_DATE, t.UPDATED_USER, t.UPDATED_DATE, c.COURSE_NAME
+      from TRAIN_TASK_COURSE t, TRAIN_COURSE_INFO c
+     where t.COURSE_ID = c.COURSE_ID and t.TRAIN_ID = #{trainId} and t.COURSE_ID = #{courseId} and t.IS_VALID='Y'
+  </select>
+  
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+    update TRAIN_TASK_COURSE set IS_VALID='N' 
+    where PK_SERIAL = #{pkSerial}
+  </delete>
+  
+  <delete id="deleteByTrainAndCourse" parameterType="com.funde.traintask.biz.domain.TrainTaskCourseDomain">
+    update TRAIN_TASK_COURSE set IS_VALID='N' 
+    where TRAIN_ID = #{trainId} and COURSE_ID = #{courseId}
+  </delete>
+  
+  <delete id="deleteByTrain" parameterType="java.lang.String">
+    update TRAIN_TASK_COURSE set IS_VALID='N' 
+     where TRAIN_ID = #{trainId}
+  </delete>
+  
+  <insert id="insert" parameterType="com.funde.traintask.biz.entity.TrainTaskCourse">
+    insert into TRAIN_TASK_COURSE (TRAIN_ID, COURSE_ID)
+    values (#{trainTaskRecord.trainId}, #{trainCourseInfo.courseId})
+  </insert>
+  
+  <update id="updateByPrimaryKey" parameterType="com.funde.traintask.biz.entity.TrainTaskCourse">
+    update TRAIN_TASK_COURSE
+    set TRAIN_ID = #{trainTaskRecord.trainId},
+      COURSE_ID = #{trainCourseInfo.courseId},
+    where PK_SERIAL = #{pkSerial}
+  </update>
+  
+   <!-- 分页查询 -->
+  <select id="queryPageList" parameterType="com.funde.traintask.biz.domain.TrainTaskRecordDomain" resultMap="BaseResultMap">
+		<include refid="commons.pagePrefix" />
+          select a.*,
+                 (select STATUS_DESC from TRAIN_COURSE_STATUS where STATUS = a.STATUS and IS_VALID='Y') STATUS_DESC,
+                 (select COURSE_TYPE_DESC from TRAIN_COURSE_TYPE where COURSE_TYPE = a.COURSE_TYPE and IS_VALID='Y') COURSE_TYPE_DESC,
+                 (select BRANCH_NAME from ALL_BRANCH_INFO where BRANCH_CODE = a.BRANCH_CODE and IS_VALID='Y') BRANCH_NAME,
+                 (select DEPT_NAME from ALL_DEPT_INFO where DEPT_ID = a. DEPT_ID) DEPT_NAME,
+                 (select s.STATUS_DESC from BUSI_MAINT_RECORD r, BUSI_MAINT_STATUS s where r.STATUS = S.STATUS and r.MAINT_ID = a.LATEST_MAINT_ID and r.IS_VALID='Y') BUSI_MAINT_DESC
+            from (select t.COURSE_ID,
+                         t.PK_SERIAL,
+                         t.COURSE_NAME,
+                         t.BRANCH_CODE,
+                         t.COURSE_TYPE,
+                         t.APPLY_USER,
+                         t.APPLY_TIME,
+                         t.EFFECT_DATE,
+                         t.LATEST_MAINT_ID,
+                         t.STATUS,
+                         t.DEPT_ID,
+                         c.TRAIN_ID
+                    from TRAIN_TASK_COURSE c, TRAIN_COURSE_INFO t 
+                   where c.COURSE_ID = t.COURSE_ID and c.IS_VALID='Y' and t.IS_VALID='Y') a
+		<where>
+			1=1 and a.TRAIN_ID = #{dto.trainId} order by a.COURSE_ID desc
+		</where>
+		<include refid="commons.pageSuffix" />
+	</select>
+   <!-- 分页count -->
+   <select id="queryPageListCount" parameterType="com.funde.traintask.biz.domain.TrainTaskRecordDomain" resultType="java.lang.Integer">
+	   select count(*) from TRAIN_TASK_COURSE
+	   <where>
+			1=1 and IS_VALID='Y' and TRAIN_ID = #{dto.trainId}
+     </where>
+  </select> 
+  <!-- 生成excel清单 -->
+  <select id="exportList" parameterType="com.funde.traintask.biz.domain.TrainTaskRecordDomain" resultMap="VoResultMap">
+		<include refid="commons.pagePrefix" />
+          select a.*,
+                 to_char(a.EFFECT_DATE,'yyyy-mm-dd') EFFECT_DATE_DESC,
+                 (select STATUS_DESC from TRAIN_COURSE_STATUS where STATUS = a.STATUS and IS_VALID='Y') STATUS_DESC,
+                 (select COURSE_TYPE_DESC from TRAIN_COURSE_TYPE where COURSE_TYPE = a.COURSE_TYPE and IS_VALID='Y') COURSE_TYPE_DESC,
+                 (select BRANCH_NAME from ALL_BRANCH_INFO where BRANCH_CODE = a.BRANCH_CODE and IS_VALID='Y') BRANCH_NAME,
+                 (select DEPT_NAME from ALL_DEPT_INFO where DEPT_ID = a. DEPT_ID) DEPT_NAME,                 
+                 (select BUSI_SERIES_DESC from BUSI_SERIES where BUSI_SERIES = a.BUSI_SERIES) BUSI_SERIES_DESC    
+            from (select t.COURSE_ID,
+                         t.PK_SERIAL,
+                         t.COURSE_NAME,
+                         t.BRANCH_CODE,
+                         t.COURSE_TYPE,
+                         t.APPLY_USER,
+                         t.APPLY_TIME,
+                         t.EFFECT_DATE,
+                         t.LATEST_MAINT_ID,
+                         t.STATUS,
+                         t.BUSI_SERIES,
+                         t.DEPT_ID,
+                         c.TRAIN_ID
+                    from TRAIN_TASK_COURSE c, TRAIN_COURSE_INFO t 
+                   where c.COURSE_ID = t.COURSE_ID and c.IS_VALID='Y' and t.IS_VALID='Y') a
+		<where>
+			1=1 and a.TRAIN_ID = #{dto.trainId} order by a.COURSE_ID desc
+		</where>
+		<include refid="commons.pageSuffix" />
+	</select>
+</mapper>
