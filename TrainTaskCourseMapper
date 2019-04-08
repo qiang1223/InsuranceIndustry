@@ -1,0 +1,67 @@
+package com.funde.traintask.biz.mapper;
+
+import java.util.List;
+import java.util.Map;
+
+import org.apache.ibatis.annotations.Param;
+import org.springframework.stereotype.Repository;
+
+import com.funde.traintask.biz.domain.TrainTaskCourseDomain;
+import com.funde.traintask.biz.domain.TrainTaskRecordDomain;
+import com.funde.traintask.biz.entity.TrainTaskCourse;
+import com.funde.traintask.biz.vo.TrainCourseVo;
+import com.pub.basic.core.dao.BasicMapper;
+
+@Repository
+public interface TrainTaskCourseMapper extends BasicMapper<String, TrainTaskCourse> {
+
+	/**
+	 * 根据培训id分页查询返回关联课件
+	 * 
+	 * @param trainId
+	 * @return
+	 */
+	List<TrainTaskCourse> queryPageList(@Param("trainId")String trainId);
+
+	/**
+	 * 根据培训id分页查询返回关联课件count
+	 * 
+	 * @param trainId
+	 * @return
+	 */
+	int queryPageListCount(@Param("trainId")String trainId);
+
+	/**
+	 * 从培训任务中删除关联课件
+	 * 
+	 * @param domain
+	 * @return
+	 */
+	int deleteByTrainAndCourse(TrainTaskCourseDomain domain);
+
+	/**
+	 * 根据培训任务id以及培训课件id寻找关联记录
+	 * 
+	 * @param trainId
+	 * @param courseId
+	 * @return
+	 */
+	TrainTaskCourse selectByTrainAndCourse(Map<String, String> map);
+
+	/**
+	 * 根据培训任务id删除
+	 * 
+	 * @param trainId
+	 * @return
+	 */
+	int deleteByTrain(@Param("trainId")String trainId);
+
+	/**
+	 * 根据培训id生成excel清单 数据内容
+	 * 
+	 * @param domain
+	 * @return
+	 */
+	List<TrainCourseVo> exportList(TrainTaskRecordDomain domain);
+
+}
