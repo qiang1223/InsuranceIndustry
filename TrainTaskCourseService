@@ -1,0 +1,28 @@
+package com.funde.traintask.biz.service;
+
+import org.springframework.stereotype.Service;
+
+import com.funde.traintask.biz.domain.TrainTaskCourseDomain;
+import com.funde.traintask.biz.domain.TrainTaskRecordDomain;
+import com.funde.traintask.biz.entity.TrainTaskCourse;
+import com.pub.basic.commons.Result;
+import com.pub.basic.core.service.BasicService;
+
+@Service
+public interface TrainTaskCourseService extends BasicService<String, TrainTaskCourse>{
+
+
+	/**
+     * 从培训任务中增加关联课件
+     * @param domain
+     * @return
+     */
+	Result relationTaskAndCourse(TrainTaskRecordDomain domain);
+	
+	/**
+     * 从培训任务中删除关联课件
+     * @param trainTaskCourse
+     * @return
+     */
+	Result deleteCourseFromTask(TrainTaskCourseDomain trainTaskCourse);
+}
