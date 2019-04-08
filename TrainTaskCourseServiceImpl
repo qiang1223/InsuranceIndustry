@@ -1,0 +1,72 @@
+package com.funde.traintask.biz.service.impl;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import com.funde.traincourse.biz.entity.TrainCourseInfo;
+import com.funde.traintask.biz.domain.TrainTaskCourseDomain;
+import com.funde.traintask.biz.domain.TrainTaskRecordDomain;
+import com.funde.traintask.biz.entity.TrainTaskCourse;
+import com.funde.traintask.biz.mapper.TrainTaskCourseMapper;
+import com.funde.traintask.biz.service.TrainTaskCourseService;
+import com.pub.basic.commons.Constant;
+import com.pub.basic.commons.Result;
+import com.pub.basic.core.dao.BasicMapper;
+import com.pub.basic.core.service.impl.BasicServiceImpl;
+
+@Service
+public class TrainTaskCourseServiceImpl extends BasicServiceImpl<String, TrainTaskCourse> implements TrainTaskCourseService {
+
+	@Autowired
+	private TrainTaskCourseMapper trainTaskCourseMapper;
+
+	@Autowired
+	@Qualifier("trainTaskCourseMapper")
+	@Override
+	public void setBasicMapper(BasicMapper<String, TrainTaskCourse> basicMapper) {
+		super.setBasicMapper(basicMapper);
+	}
+
+	@Override
+	public Result relationTaskAndCourse(TrainTaskRecordDomain domain) {
+		Result result = new Result(Constant.OPERATION_FAIL_FLAG);
+		TrainTaskCourse taskCourse = new TrainTaskCourse();
+		taskCourse.setTrainTaskRecord(domain.getTrainTaskRecord());
+		TrainCourseInfo courseInfo = new TrainCourseInfo();
+
+		String trainId = domain.getTrainTaskRecord().getTrainId();
+
+		// 判断是否新增(如果num>0则为编辑，编辑则需先删除以往记录)
+		Integer num = trainTaskCourseMapper.queryPageListCount(domain);
+		if (num > 0) {
+			// 先删除该培训任务下所有关联课件
+			int count = trainTaskCourseMapper.deleteByTrain(trainId);
+			if (count < 1) {
+				result.setMessage("删除异常");
+				return result;
+			}
+		}
+		for (int i = 0; i < domain.getCourseIdList().length; i++) {
+			String courseId = domain.getCourseIdList()[i];
+
+			courseInfo.setCourseId(courseId);
+			taskCourse.setTrainCourseInfo(courseInfo);
+			trainTaskCourseMapper.insert(taskCourse);
+		}
+		result.setSign(Constant.OPERATION_SUCCESS_FLAG);
+
+		return result;
+	}
+
+	@Override
+	public Result deleteCourseFromTask(TrainTaskCourseDomain domain) {
+		Result rst = new Result(Constant.OPERATION_FAIL_FLAG);
+		int count = trainTaskCourseMapper.deleteByTrainAndCourse(domain);
+		if (count > 0) {
+			rst.setSign(Constant.OPERATION_SUCCESS_FLAG);
+		}
+		return rst;
+	}
+
+}
