@@ -1,0 +1,345 @@
+package com.funde.traintask.biz.web;
+
+import java.io.UnsupportedEncodingException;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.funde.commons.until.IccConstant;
+import com.funde.login.util.LoginUtil;
+import com.funde.traintask.biz.domain.TrainTaskCourseDomain;
+import com.funde.traintask.biz.domain.TrainTaskRecordDomain;
+import com.funde.traintask.biz.entity.TrainTaskCourse;
+import com.funde.traintask.biz.entity.TrainTaskRecord;
+import com.funde.traintask.biz.entity.TrainTaskStatus;
+import com.funde.traintask.biz.service.TrainTaskCourseService;
+import com.funde.traintask.biz.service.TrainTaskRecordService;
+import com.funde.um.biz.entity.UserInfo;
+import com.pub.basic.commons.Constant;
+import com.pub.basic.commons.DataGrid;
+import com.pub.basic.commons.Result;
+import com.pub.basic.core.web.BasicController;
+import com.pub.busi.dept.biz.entity.AllDeptInfo;
+
+/**
+ * 培训任务管理
+ * 
+ */
+@Controller
+@RequestMapping(value = "/trainTask")
+public class TrainTaskRecordController extends BasicController {
+	@Autowired
+	private TrainTaskRecordService trainTaskRecordService;
+	@Autowired
+	private TrainTaskCourseService trainTaskCourseService;
+
+	/**
+	 * 主页跳转
+	 * 
+	 * @return
+	 */
+	@RequestMapping(value = "/mainPage")
+	public ModelAndView mainPage() {
+		return this.page(null, "/trainTask/main");
+	}
+
+	/**
+	 * 主页分页查询
+	 * 
+	 * @param domain
+	 * @return
+	 */
+	@RequestMapping(value = "/queryTrainTaskRecordList", method = RequestMethod.POST)
+	@ResponseBody
+	public DataGrid<TrainTaskRecord> queryTrainTaskRecordList(TrainTaskRecordDomain domain) {
+		UserInfo userInfo = LoginUtil.getCurrentUserInfo();
+		AllDeptInfo deptInfo = new AllDeptInfo();
+		if (userInfo.getUserDept() != null) {
+			deptInfo.setDeptId(userInfo.getUserDept().getDeptId());
+		}
+		domain.getTrainTaskRecord().setDeptInfo(deptInfo);
+		return trainTaskRecordService.queryPageList(domain);
+	}
+
+	/**
+	 * 查询返回所有培训任务相关课件
+	 * 
+	 * @return
+	 */
+	@RequestMapping(value = "/queryTrainCourseLisyByTrainId")
+	@ResponseBody
+	public DataGrid<TrainTaskCourse> queryTrainCourseLisyByTrainId(TrainTaskRecordDomain domain) throws UnsupportedEncodingException {
+		return trainTaskCourseService.queryPageList(domain);
+	}
+
+	/**
+	 * 新增页跳转
+	 * 
+	 * @return
+	 */
+	@RequestMapping(value = "/addPage")
+	public ModelAndView addPage() {
+		return this.page(null, "/trainTask/add");
+	}
+
+	/**
+	 * 新增保存
+	 * 
+	 * @param recordDomain
+	 * @return
+	 */
+	@RequestMapping(value = "/addTrainTaskRecord")
+	@ResponseBody
+	public Result addTrainTaskRecord(TrainTaskRecordDomain recordDomain) {
+		Result result = new Result(Constant.OPERATION_FAIL_FLAG);
+
+		UserInfo userInfo = LoginUtil.getCurrentUserInfo();
+		TrainTaskRecord record = recordDomain.getTrainTaskRecord();
+		// 封装用户信息至培训任务
+		prepareTrainTaskRecord(record, userInfo);
+
+		result = trainTaskRecordService.addTrainTaskRecord(recordDomain);
+		return result;
+	}
+
+	/**
+	 * 新增提交审批
+	 * 
+	 * @param recordDomain
+	 * @return
+	 */
+	@RequestMapping(value = "/addSubmitTrainTaskRecord")
+	@ResponseBody
+	public Result addSubmitTrainTaskRecord(TrainTaskRecordDomain recordDomain) {
+		Result result = new Result(Constant.OPERATION_FAIL_FLAG);
+		if (recordDomain.getCourseIdList().length < 1) {
+			result.setMessage("请选择至少一个课件!");
+			return result;
+		}
+
+		UserInfo userInfo = LoginUtil.getCurrentUserInfo();
+		TrainTaskRecord record = recordDomain.getTrainTaskRecord();
+		// 封装用户信息至培训任务
+		recordDomain.setDeptId(userInfo.getUserDept().getDeptId());
+		prepareTrainTaskRecord(record, userInfo);
+
+		result = trainTaskRecordService.submitTrainTaskRecord(recordDomain);
+		return result;
+	}
+
+	/**
+	 * 删除培训任务
+	 * 
+	 * @param recordDomain
+	 * @return
+	 */
+	@RequestMapping(value = "/removeTrainTaskRecord")
+	@ResponseBody
+	public Result removeTrainTaskRecord(String trainId) {
+		Result result = new Result(Constant.OPERATION_FAIL_FLAG);
+		TrainTaskRecord trainTask = trainTaskRecordService.selectByPrimaryKey(trainId);
+		if (trainTask == null) {
+			result.setMessage("找不到该数据!删除失败!");
+			return result;
+		}
+		TrainTaskStatus status = new TrainTaskStatus();
+		status.setStatus(IccConstant.DATA_STATUS_DELETE);
+		trainTask.setTrainTaskStatus(status);
+
+		result = trainTaskRecordService.updateStatusByPk(trainTask);
+		return result;
+	}
+
+	/**
+	 * 修改页跳转
+	 * 
+	 * @param trainId
+	 * @return
+	 */
+	@RequestMapping(value = "/editPage")
+	public ModelAndView editPage(String trainId) {
+		Map<String, Object> params = new HashMap<String, Object>();
+		params.put("trainTask", trainTaskRecordService.selectByPrimaryKey(trainId));
+		return this.page(params, "/trainTask/edit");
+	}
+
+	/**
+	 * 修改保存
+	 * 
+	 * @param recordDomain
+	 * @return
+	 */
+	@RequestMapping(value = "/saveEdit")
+	@ResponseBody
+	public Result saveEdit(TrainTaskRecordDomain recordDomain) {
+		Result result = new Result(Constant.OPERATION_SUCCESS_FLAG);
+		result = trainTaskRecordService.modifyTrainTaskRecord(recordDomain);
+		return result;
+	}
+
+	/**
+	 * 修改提交审批
+	 * 
+	 * @param recordDomain
+	 * @return
+	 */
+	@RequestMapping(value = "/editSubmitTrainTaskRecord")
+	@ResponseBody
+	public Result editSubmitTrainTaskRecord(TrainTaskRecordDomain recordDomain) {
+		Result result = new Result(Constant.OPERATION_FAIL_FLAG);
+
+		if (recordDomain.getCourseIdList().length < 1) {
+			result.setMessage("请选择至少一个课件!");
+			return result;
+		}
+
+		UserInfo userInfo = LoginUtil.getCurrentUserInfo();
+		TrainTaskRecord record = recordDomain.getTrainTaskRecord();
+		// 封装用户信息至培训任务
+		recordDomain.setDeptId(userInfo.getUserDept().getDeptId());
+		prepareTrainTaskRecord(record, userInfo);
+
+		result = trainTaskRecordService.submitTrainTaskRecord(recordDomain);
+		return result;
+	}
+
+	/**
+	 * 查看页跳转
+	 * 
+	 * @param trainId
+	 * @return
+	 */
+	@RequestMapping(value = "/checkPage")
+	public ModelAndView checkPage(String trainId, String type) {
+		Map<String, Object> params = new HashMap<String, Object>();
+		TrainTaskRecord trainTask = trainTaskRecordService.selectByPrimaryKey(trainId);
+		if (trainTask == null)
+			return this.page(null, "/commons/busiDataNull");
+		params.put("trainTask", trainTask);
+		params.put("type", type);
+		return this.page(params, "/trainTask/check");
+	}
+
+	/**
+	 * 执行页跳转
+	 * 
+	 * @param trainId
+	 * @return
+	 */
+	@RequestMapping(value = "/executePage")
+	public ModelAndView executePage(String trainId, String type) {
+		Map<String, Object> params = new HashMap<String, Object>();
+		TrainTaskRecord trainTask = trainTaskRecordService.selectByPrimaryKey(trainId);
+		if (trainTask == null)
+			return this.page(null, "/commons/busiDataNull");
+		params.put("trainTask", trainTask);
+		params.put("type", type);
+		return this.page(params, "/trainTask/execute");
+	}
+
+	/**
+	 * 执行保存
+	 * 
+	 * @param trainTaskRecord
+	 * @return
+	 */
+	@RequestMapping(value = "/executeSave")
+	@ResponseBody
+	public Result executeSave(TrainTaskRecord record, String fileBatchNo) {
+		Result result = new Result(Constant.OPERATION_FAIL_FLAG);
+		UserInfo userInfo = LoginUtil.getCurrentUserInfo();
+		result = trainTaskRecordService.executeTrainTaskRecord(record, fileBatchNo, userInfo);
+		return result;
+	}
+
+	/**
+	 * 作废页跳转
+	 * 
+	 * @param trainId
+	 * @return
+	 */
+	@RequestMapping(value = "/disablePage")
+	public ModelAndView disablePage(String trainId, String type) {
+		Map<String, Object> params = new HashMap<String, Object>();
+		TrainTaskRecord trainTask = trainTaskRecordService.selectByPrimaryKey(trainId);
+		if (trainTask == null)
+			return this.page(null, "/commons/busiDataNull");
+		params.put("trainTask", trainTask);
+		params.put("type", type);
+		return this.page(params, "/trainTask/disable");
+	}
+
+	/**
+	 * 作废提交
+	 * 
+	 * @param trainTaskRecord
+	 * @return
+	 */
+	@RequestMapping(value = "/disableTrainTaskRecord")
+	@ResponseBody
+	public Result disableTrainTaskRecord(TrainTaskRecordDomain recordDomain) {
+		Result result = new Result(Constant.OPERATION_FAIL_FLAG);
+
+		UserInfo userInfo = LoginUtil.getCurrentUserInfo();
+		TrainTaskRecord record = recordDomain.getTrainTaskRecord();
+		// 封装用户信息至培训任务
+		recordDomain.setDeptId(userInfo.getUserDept().getDeptId());
+		record.setDisableUser(userInfo.getUserId());
+		prepareTrainTaskRecord(record, userInfo);
+
+		result = trainTaskRecordService.disableTrainTaskRecord(recordDomain);
+		return result;
+	}
+
+	/**
+	 * 给培训任务添加关联课件
+	 * 
+	 * @param recordDomain
+	 * @return
+	 */
+	@RequestMapping(value = "/addCourseToTask")
+	@ResponseBody
+	public Result addCourseToTask(TrainTaskRecordDomain recordDomain) {
+		Result result = new Result(Constant.OPERATION_FAIL_FLAG);
+		if (recordDomain.getCourseIdList().length < 1) {
+			result.setMessage("请选择至少一个课件!");
+			return result;
+		}
+		// 关联课件与任务
+		result = trainTaskCourseService.relationTaskAndCourse(recordDomain);
+		return result;
+	}
+
+	/**
+	 * 从培训任务中删除关联课件
+	 * 
+	 * @param recordDomain
+	 * @return
+	 */
+	@RequestMapping(value = "/deleteCourseFromTask")
+	@ResponseBody
+	public Result deleteCourseFromTask(TrainTaskCourseDomain recordDomain) {
+		Result result = new Result(Constant.OPERATION_FAIL_FLAG);
+		result = trainTaskCourseService.deleteCourseFromTask(recordDomain);
+		return result;
+	}
+
+	/**
+	 * 封装机构,业务系列,用户
+	 */
+	private void prepareTrainTaskRecord(TrainTaskRecord record, UserInfo userInfo) {
+		if (userInfo == null || userInfo.getAllBranchInfo() == null || userInfo.getUserDept() == null) {
+			return;
+		}
+		record.setBranchInfo(userInfo.getAllBranchInfo());
+		record.setApplyUser(userInfo.getUserId());
+		record.setDeptInfo(userInfo.getUserDept());
+		record.setBusiSeries(userInfo.getUserDept().getBusiSeries());
+	}
+}
